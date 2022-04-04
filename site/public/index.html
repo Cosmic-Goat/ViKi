@@ -12,15 +12,20 @@
     <title>Medical Graph Demo</title>
   </head>
   <body>
-    <h1>Heart Rate</h1>
-    <canvas id="bpm"></canvas>
-
-    <h1>Body Temperature</h1>
-    <canvas id="temp"></canvas>
-
-    <h1>Blood Oxygen</h1>
-    <canvas id="ox"></canvas>
-
+    <div class="container">
+      <div class="chart-container">
+        <canvas id="bpm"></canvas>
+      </div>
+      <div class="chart-container">
+        <canvas id="pulse"></canvas>
+      </div>
+      <div class="chart-container">
+        <canvas id="temp"></canvas>
+      </div>
+      <div class="chart-container">
+        <canvas id="ox"></canvas>
+      </div>
+    </div>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <script type="module" src="./dist/index.js"></script>
   </body>
