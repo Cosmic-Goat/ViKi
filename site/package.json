@@ -7,7 +7,7 @@
     "lint": "prettier --check \"src/**/*.{ts,js}\""
   },
   "dependencies": {
-    "chart.js": "^3.7.1",
+    "chart.js": "^3.7.1"
   },
   "devDependencies": {
     "@snowpack/plugin-typescript": "^1.2.1",

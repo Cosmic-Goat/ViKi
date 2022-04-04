@@ -21,7 +21,7 @@ export default {
     bundle: true,
     minify: true,
     treeshake: true,
-    sourcemap: 'none',//'external',
+    sourcemap: 'external',
     target: 'es2018',
   },
   packageOptions: {
