@@ -1,4 +1,6 @@
-.pio
-.clang_complete
+.cache
 .ccls
 .ccls-root
+.clang_complete
+.pio
+compile_commands.json
