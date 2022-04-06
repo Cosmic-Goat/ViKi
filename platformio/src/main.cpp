@@ -1,8 +1,4 @@
-#include <Adafruit_SPIFlash.h>
-#include <Adafruit_TinyUSB.h>
 #include <Arduino.h>
-#include <SPI.h>
-#include <SdFat.h>
 #include <USB_Drive.h>
 
 USB_Drive usb;
@@ -12,7 +8,9 @@ void setup()
 	usb.begin();
 
 	Serial.begin(115200);
-	// while ( !Serial ) delay(10);   // wait for native usb
+	// wait for native usb
+	while (!Serial)
+		delay(1);
 
 	if (!usb.fsFormatted)
 	{
@@ -31,6 +29,17 @@ void setup()
 
 void loop()
 {
+	// If the device is connected to usb, write uptime to a file for data visualisation
+	if (tud_cdc_connected())
+	{
+		const uint32_t t = millis();
+		usb.writeToFile("/time", (uint8_t *)&t, sizeof(t));
+	}
+
+	// write random test data to a file
+	const uint32_t reading = analogRead(A1);
+	usb.writeToFile("/temp.dat", (uint8_t *)&reading, sizeof(reading));
+
 	usb.loop();
-	delay(1000); // refresh every 1 second
+	delay(10);
 }
