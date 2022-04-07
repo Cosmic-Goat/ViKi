@@ -9,9 +9,10 @@ template <typename T, size_t N> constexpr size_t array_size(T (&)[N])
 }
 
 // Create an array of data structures and fill it with correct flash settings
-constexpr static SPIFlash_Device_t flashDevices[] = {W25Q256JV};
-Adafruit_FlashTransport_SPI USB_Drive::flashTransport(EXTERNAL_FLASH_USE_CS, EXTERNAL_FLASH_USE_SPI);
-Adafruit_SPIFlash USB_Drive::flash(&flashTransport);
+constexpr uint32_t INTERNAL_FLASH_FILESYSTEM_SIZE = (192 * 1024);
+constexpr uint32_t INTERNAL_FLASH_FILESYSTEM_START_ADDR = (0x00040000 - 256 - 0 - INTERNAL_FLASH_FILESYSTEM_SIZE);
+
+Adafruit_InternalFlash USB_Drive::flash(INTERNAL_FLASH_FILESYSTEM_START_ADDR, INTERNAL_FLASH_FILESYSTEM_SIZE);
 
 FatFileSystem USB_Drive::fatfs;
 bool USB_Drive::fsFormatted = false;
@@ -52,7 +53,8 @@ void USB_Drive::begin()
 	};
 
 	// Give the flash driver detals about our flash chip
-	flash.begin(flashDevices, array_size(flashDevices));
+	// flash.begin(flashDevices, array_size(flashDevices));
+	flash.begin();
 	// Set disk vendor id, product id and revision with string up to 8, 16, 4 characters respectively
 	usbMsc.setID("Team 1", "VitalKit", "0.1");
 	// Set callback
@@ -67,12 +69,12 @@ void USB_Drive::begin()
 	fsFormatted = fatfs.begin(&flash);
 }
 
-void USB_Drive::writeToFile(const String &path, const uint8_t *buffer, const size_t size)
+void USB_Drive::writeToFile(const char *path, const uint8_t *buffer, const size_t size)
 {
-	File file = fatfs.open(path, FILE_WRITE);
+	File file = fatfs.open(path, O_WRITE | O_CREAT | O_APPEND);
 	if (file)
 	{
-		Serial.printf("Writing data to %s...", &path);
+		Serial.printf("Writing data to %s... ", path);
 		file.write(buffer, size);
 		file.close();
 		Serial.println("done.");
@@ -80,10 +82,46 @@ void USB_Drive::writeToFile(const String &path, const uint8_t *buffer, const siz
 	else
 	{
 		// if the file didn't open, print an error:
-		Serial.printf("Error opening %s!", &path);
+		Serial.printf("Error opening %s!\n", path);
 	}
 }
 
+static FatFile root;
+static FatFile file;
+
 void USB_Drive::loop()
 {
+	if (fsChanged)
+	{
+		fsChanged = false;
+
+		if (!root.open("/"))
+		{
+			Serial.println("open root failed");
+			return;
+		}
+
+		Serial.println("Flash contents:");
+
+		// Open next file in root.
+		// Warning, openNext starts at the current directory position
+		// so a rewind of the directory may be required.
+		while (file.openNext(&root, O_RDONLY))
+		{
+			file.printFileSize(&Serial);
+			Serial.write(' ');
+			file.printName(&Serial);
+			if (file.isDir())
+			{
+				// Indicate a directory.
+				Serial.write('/');
+			}
+			Serial.println();
+			file.close();
+		}
+
+		root.close();
+
+		Serial.println();
+	}
 }
