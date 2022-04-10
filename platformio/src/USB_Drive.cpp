@@ -8,25 +8,34 @@ template <typename T, size_t N> constexpr size_t array_size(T (&)[N])
 	return N;
 }
 
-// Create an array of data structures and fill it with correct flash settings
-constexpr uint32_t INTERNAL_FLASH_FILESYSTEM_SIZE = (192 * 1024);
-constexpr uint32_t INTERNAL_FLASH_FILESYSTEM_START_ADDR = (0x00040000 - 256 - 0 - INTERNAL_FLASH_FILESYSTEM_SIZE);
-
-Adafruit_InternalFlash USB_Drive::flash(INTERNAL_FLASH_FILESYSTEM_START_ADDR, INTERNAL_FLASH_FILESYSTEM_SIZE);
-
-FatFileSystem USB_Drive::fatfs;
-bool USB_Drive::fsFormatted = false;
+// SD Card Chip Select Pin
+constexpr uint32_t SDCARD_CS = 7;
+SdFat USB_Drive::sd;
 bool USB_Drive::fsChanged = false;
 
 void USB_Drive::begin()
 {
+	Serial.println("INIT SD");
+	// Set disk vendor id, product id and revision with string up to 8, 16, 4 characters respectively
+	usbMsc.setID("Team 1", "VitalKit", "0.1");
+	// Initializing the SD card can take time.
+	// If it takes too long, our board could be enumerated as a CDC device only, i.e without Mass Storage.
+	// To prevent this, we call Mass Storage begin first and LUN readiness will be set later on.
+	usbMsc.begin();
+
+	if (!sd.begin(SDCARD_CS, SD_SCK_MHZ(50)))
+	{
+		Serial.println("Failed ");
+		return;
+	}
+
 	/*
 	 * Callback invoked when received READ10 command.
 	 * Copy disk's data to buffer (up to bufsize) and return number of copied bytes (must be multiple of block size).
 	 */
-	auto msc_read = [](uint32_t lba, void *buffer, uint32_t bufsize) {
+	const auto msc_read = [](uint32_t lba, void *buffer, uint32_t bufsize) {
 		// SPIFlash Block API includes 4K sector caching internally.
-		bool read = flash.readBlocks(lba, (uint8_t *)buffer, bufsize / 512);
+		const bool read = sd.card()->readBlocks(lba, (uint8_t *)buffer, bufsize / 512);
 		return read ? (int32_t)bufsize : -1;
 	};
 
@@ -34,9 +43,9 @@ void USB_Drive::begin()
 	 * Callback invoked when received WRITE10 command.
 	 * Process data in buffer to disk's storage and return number of written bytes (must be multiple of block size).
 	 */
-	auto msc_write = [](uint32_t lba, uint8_t *buffer, uint32_t bufsize) {
+	const auto msc_write = [](uint32_t lba, uint8_t *buffer, uint32_t bufsize) {
 		// SPIFlash Block API includes 4K sector caching internally.
-		bool write = flash.writeBlocks(lba, buffer, bufsize / 512) ? bufsize : -1;
+		const bool write = sd.card()->writeBlocks(lba, buffer, bufsize / 512) ? bufsize : -1;
 		return write ? (int32_t)bufsize : -1;
 	};
 
@@ -44,34 +53,32 @@ void USB_Drive::begin()
 	 * Callback invoked when WRITE10 command is completed (status received and accepted by host).
 	 * Used to flush any pending cache.
 	 */
-	auto msc_flush = [](void) {
+	const auto msc_flush = [](void) {
 		// sync with flash
-		flash.syncBlocks();
+		sd.card()->syncBlocks();
 		// clear file system's cache to force refresh
-		fatfs.cacheClear();
+		sd.cacheClear();
 		fsChanged = true;
 	};
 
-	// Give the flash driver detals about our flash chip
-	// flash.begin(flashDevices, array_size(flashDevices));
-	flash.begin();
-	// Set disk vendor id, product id and revision with string up to 8, 16, 4 characters respectively
-	usbMsc.setID("Team 1", "VitalKit", "0.1");
-	// Set callback
 	usbMsc.setReadWriteCallback(msc_read, msc_write, msc_flush);
-	// Set disk size, block size should be 512 regardless of spi flash page size
-	usbMsc.setCapacity(flash.size() / 512, 512);
+
+	const uint32_t block_count = sd.card()->cardSize();
+	usbMsc.setCapacity(block_count, 512);
+
+	fsChanged = true; // to print contents initially
+
+	Serial.print("OK, Card size = ");
+	Serial.print((block_count / (1024 * 1024)) * 512);
+	Serial.println(" MB");
+
 	// MSC is ready for read/write
 	usbMsc.setUnitReady(true);
-	usbMsc.begin();
-
-	// Init file system on the flash
-	fsFormatted = fatfs.begin(&flash);
 }
 
 void USB_Drive::writeToFile(const char *path, const uint8_t *buffer, const size_t size)
 {
-	File file = fatfs.open(path, O_WRITE | O_CREAT | O_APPEND);
+	File file = sd.open(path, O_WRITE | O_CREAT | O_APPEND);
 	if (file)
 	{
 		Serial.printf("Writing data to %s... ", path);
@@ -86,22 +93,15 @@ void USB_Drive::writeToFile(const char *path, const uint8_t *buffer, const size_
 	}
 }
 
-static FatFile root;
-static FatFile file;
-
 void USB_Drive::loop()
 {
 	if (fsChanged)
 	{
 		fsChanged = false;
+		File root = sd.open("/");
+		File file;
 
-		if (!root.open("/"))
-		{
-			Serial.println("open root failed");
-			return;
-		}
-
-		Serial.println("Flash contents:");
+		Serial.println("SD contents:");
 
 		// Open next file in root.
 		// Warning, openNext starts at the current directory position

@@ -1,7 +1,5 @@
 #pragma once
 
-#include <Adafruit_InternalFlash.h>
-#include <Adafruit_SPIFlash.h>
 #include <Adafruit_TinyUSB.h>
 #include <Arduino.h>
 #include <SPI.h>
@@ -13,11 +11,8 @@ class USB_Drive
 	Adafruit_USBD_MSC usbMsc;
 
   public:
-	static Adafruit_InternalFlash flash;
 	// file system object from SdFat
-	static FatFileSystem fatfs;
-	// Check if flash is formatted
-	static bool fsFormatted;
+	static SdFat sd;
 	// Set to true when PC write to flash
 	static bool fsChanged;
 	void begin();

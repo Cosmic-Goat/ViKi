@@ -16,6 +16,10 @@ union {
 
 void setup()
 {
+	Serial.begin(9800);
+	// while (!Serial)
+	// 	delay(1); // Wait for serial monitor to open.
+
 	// Set onboard pixel to a nice yellow, so we can tell the MCU is on and running our code.
 	pixels.begin();
 	pixels.setBrightness(128);
@@ -23,18 +27,6 @@ void setup()
 	pixels.show();
 
 	usb.begin();
-
-	Serial.begin(115200);
-
-	if (!usb.fsFormatted)
-	{
-		Serial.println("Failed to init files system, flash may not be formatted");
-	}
-
-	Serial.println("Adafruit TinyUSB Mass Storage External Flash example");
-	Serial.print("Flash size: ");
-	Serial.print(usb.flash.size() / 1024);
-	Serial.println(" KB");
 
 	usb.fsChanged = true; // to print contents initially
 
@@ -77,11 +69,11 @@ void loop()
 	if (tud_cdc_connected())
 	{
 		data.uint = millis();
-		usb.writeToFile("time", data.bytes, sizeof(data.bytes));
+		usb.writeToFile("/time", data.bytes, sizeof(data.bytes));
 	}
 
 	// write random test data to a file
-	usb.writeToFile("temp.dat", (uint8_t *)&c, sizeof(c));
+	usb.writeToFile("/temp.dat", (uint8_t *)&c, sizeof(c));
 
 	usb.loop();
 	delay(10);
