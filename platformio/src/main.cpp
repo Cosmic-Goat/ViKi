@@ -1,11 +1,12 @@
 #include <Adafruit_MCP9808.h>
+#include <Adafruit_NeoPixel.h>
 #include <Arduino.h>
 #include <USB_Drive.h>
 #include <Wire.h>
 
 USB_Drive usb;
-// Create the MCP9808 temperature sensor object
 Adafruit_MCP9808 tempsensor = Adafruit_MCP9808();
+Adafruit_NeoPixel pixels(1, PIN_NEOPIXEL);
 
 union {
 	float fl;
@@ -15,6 +16,12 @@ union {
 
 void setup()
 {
+	// Set onboard pixel to a nice yellow, so we can tell the MCU is on and running our code.
+	pixels.begin();
+	pixels.setBrightness(128);
+	pixels.setPixelColor(0, pixels.Color(255, 128, 0));
+	pixels.show();
+
 	usb.begin();
 
 	Serial.begin(115200);
