@@ -1,21 +1,9 @@
 #include <USB_Drive.h>
 
-/*
- * constexpr function to get size of static array at compile time.
- */
-template <typename T, size_t N> constexpr size_t array_size(T (&)[N])
-{
-	return N;
-}
-
-// SD Card Chip Select Pin
-constexpr uint32_t SDCARD_CS = 7;
 SdFat USB_Drive::sd;
-bool USB_Drive::fsChanged = false;
 
 void USB_Drive::begin()
 {
-	Serial.println("INIT SD");
 	// Set disk vendor id, product id and revision with string up to 8, 16, 4 characters respectively
 	usbMsc.setID("Team 1", "VitalKit", "0.1");
 	// Initializing the SD card can take time.
@@ -25,7 +13,7 @@ void USB_Drive::begin()
 
 	if (!sd.begin(SDCARD_CS, SD_SCK_MHZ(50)))
 	{
-		Serial.println("Failed ");
+		Serial.println("Failed to initialise SD Card.");
 		return;
 	}
 
@@ -54,11 +42,10 @@ void USB_Drive::begin()
 	 * Used to flush any pending cache.
 	 */
 	const auto msc_flush = [](void) {
-		// sync with flash
+		// sync with card
 		sd.card()->syncBlocks();
 		// clear file system's cache to force refresh
 		sd.cacheClear();
-		fsChanged = true;
 	};
 
 	usbMsc.setReadWriteCallback(msc_read, msc_write, msc_flush);
@@ -66,24 +53,31 @@ void USB_Drive::begin()
 	const uint32_t block_count = sd.card()->cardSize();
 	usbMsc.setCapacity(block_count, 512);
 
-	fsChanged = true; // to print contents initially
-
-	Serial.print("OK, Card size = ");
-	Serial.print((block_count / (1024 * 1024)) * 512);
-	Serial.println(" MB");
+	if (printDebug)
+	{
+		Serial.print("Card size = ");
+		Serial.print((block_count / (1024 * 1024)) * 512);
+		Serial.println(" MB");
+	}
 
 	// MSC is ready for read/write
 	usbMsc.setUnitReady(true);
 }
 
-void USB_Drive::writeToFile(const char *path, const uint8_t *buffer, const size_t size)
+void USB_Drive::writeToFile(const char *path, const uint8_t *buffer, const size_t size, oflag_t flags)
 {
-	File file = sd.open(path, O_WRITE | O_CREAT | O_APPEND);
+	File file = sd.open(path, flags);
 	if (file)
 	{
 		Serial.printf("Writing data to %s... ", path);
 		file.write(buffer, size);
 		file.close();
+
+		// sync with card
+		sd.card()->syncBlocks();
+		// clear file system's cache to force refresh
+		sd.cacheClear();
+
 		Serial.println("done.");
 	}
 	else
@@ -95,33 +89,4 @@ void USB_Drive::writeToFile(const char *path, const uint8_t *buffer, const size_
 
 void USB_Drive::loop()
 {
-	if (fsChanged)
-	{
-		fsChanged = false;
-		File root = sd.open("/");
-		File file;
-
-		Serial.println("SD contents:");
-
-		// Open next file in root.
-		// Warning, openNext starts at the current directory position
-		// so a rewind of the directory may be required.
-		while (file.openNext(&root, O_RDONLY))
-		{
-			file.printFileSize(&Serial);
-			Serial.write(' ');
-			file.printName(&Serial);
-			if (file.isDir())
-			{
-				// Indicate a directory.
-				Serial.write('/');
-			}
-			Serial.println();
-			file.close();
-		}
-
-		root.close();
-
-		Serial.println();
-	}
 }

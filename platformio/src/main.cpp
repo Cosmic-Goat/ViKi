@@ -1,24 +1,51 @@
+// Defines required for SAMDTimerInterrupt library
+#define TIMER_INTERRUPT_DEBUG 0
+#define _TIMERINTERRUPT_LOGLEVEL_ 0
+
 #include <Adafruit_MCP9808.h>
 #include <Adafruit_NeoPixel.h>
 #include <Arduino.h>
+#include <Constants.h>
+#include <SAMDTimerInterrupt.h>
 #include <USB_Drive.h>
 #include <Wire.h>
 
 USB_Drive usb;
-Adafruit_MCP9808 tempsensor = Adafruit_MCP9808();
+SAMDTimer iTimer(TIMER_TC3);
+Adafruit_MCP9808 tempSensor;
 Adafruit_NeoPixel pixels(1, PIN_NEOPIXEL);
 
-union {
-	float fl;
-	uint32_t uint;
-	uint8_t bytes[4];
-} data;
+volatile bool tempPoll = true;
+bool usbConnected = false;
+
+// union {
+// 	float fl;
+// 	uint32_t uint;
+// 	uint8_t bytes[4];
+// } data;
+
+void tempTimer()
+{
+	tempPoll = true;
+}
+
+void logTime(const char *path)
+{
+	const uint32_t time = millis();
+	usb.writeToFile(path, (uint8_t *)&time, sizeof(time), O_WRITE | O_CREAT);
+	usbConnected = true;
+}
 
 void setup()
 {
 	Serial.begin(9800);
-	// while (!Serial)
-	// 	delay(1); // Wait for serial monitor to open.
+
+	// if (printDebug)
+	// {
+	// 	// Wait for serial monitor to open.
+	// 	while (!Serial)
+	// 		delay(1);
+	// }
 
 	// Set onboard pixel to a nice yellow, so we can tell the MCU is on and running our code.
 	pixels.begin();
@@ -27,54 +54,52 @@ void setup()
 	pixels.show();
 
 	usb.begin();
+	tempSensor.begin(0x18);
 
-	usb.fsChanged = true; // to print contents initially
+	// if (!)
+	// {
+	// 	Serial.println("Couldn't find MCP9808! Check your connections and verify the address is correct.");
+	// }
 
-	if (!tempsensor.begin(0x18))
+	// sets the resolution mode of reading, the modes are defined in the table bellow:
+	// Mode Resolution SampleTime
+	//  0    0.5°C       30 ms
+	//  1    0.25°C      65 ms
+	//  2    0.125°C     130 ms
+	//  3    0.0625°C    250 ms
+	tempSensor.setResolution(3);
+
+	// Interval in microsecs
+	if (iTimer.attachInterruptInterval(tempInterval, tempTimer))
 	{
-		Serial.println("Couldn't find MCP9808! Check your connections and verify the address is correct.");
+		Serial.print(F("Starting ITimer OK, millis() = "));
+		Serial.println(millis());
 	}
+	else
+		Serial.println(F("Can't set ITimer. Select another freq. or timer"));
 
-	tempsensor.setResolution(3); // sets the resolution mode of reading, the modes are defined in the table bellow:
-								 // Mode Resolution SampleTime
-								 //  0    0.5°C       30 ms
-								 //  1    0.25°C      65 ms
-								 //  2    0.125°C     130 ms
-								 //  3    0.0625°C    250 ms
+	logTime("/sTime");
 }
 
 void loop()
 {
-	Serial.println("wake up MCP9808.... "); // wake up MCP9808 - power consumption ~200 mikro Ampere
-	tempsensor.wake();						// wake up, ready to read!
-
-	// Read and print out the temperature, also shows the resolution mode used for reading.
-	Serial.print("Resolution in mode: ");
-	Serial.println(tempsensor.getResolution());
-	float c = tempsensor.readTempC();
-	float f = tempsensor.readTempF();
-	Serial.print("Temp: ");
-	Serial.print(c, 4);
-	Serial.print("*C\t and ");
-	Serial.print(f, 4);
-	Serial.println("*F.");
-
-	delay(2000);
-	Serial.println("Shutdown MCP9808.... ");
-	tempsensor.shutdown_wake(1); // shutdown MSP9808 - power consumption ~0.1 mikro Ampere, stops temperature sampling
-	Serial.println("");
-	delay(200);
+	// noInterrupts();
+	if (tempPoll)
+	{
+		// Wake up MCP9808, power consumption ~0.2 mA
+		tempSensor.wake();
+		const float temp = tempSensor.readTempC();
+		tempSensor.shutdown();
+		usb.writeToFile("/temp.dat", (uint8_t *)&temp, sizeof(temp), O_WRITE | O_CREAT | O_APPEND);
+	}
+	// interrupts();
 
 	// If the device is connected to usb, write uptime to a file for data visualisation
-	if (tud_cdc_connected())
+	if (tud_cdc_connected() && !usbConnected)
 	{
-		data.uint = millis();
-		usb.writeToFile("/time", data.bytes, sizeof(data.bytes));
+		logTime("/endTime");
+		usbConnected = true;
 	}
 
-	// write random test data to a file
-	usb.writeToFile("/temp.dat", (uint8_t *)&c, sizeof(c));
-
 	usb.loop();
-	delay(10);
 }
