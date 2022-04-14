@@ -18,12 +18,6 @@ Adafruit_NeoPixel pixels(1, PIN_NEOPIXEL);
 volatile bool tempPoll = true;
 bool usbConnected = false;
 
-// union {
-// 	float fl;
-// 	uint32_t uint;
-// 	uint8_t bytes[4];
-// } data;
-
 void tempTimer()
 {
 	tempPoll = true;
@@ -40,12 +34,12 @@ void setup()
 {
 	Serial.begin(9800);
 
-	// if (printDebug)
-	// {
-	// 	// Wait for serial monitor to open.
-	// 	while (!Serial)
-	// 		delay(1);
-	// }
+	if (printDebug)
+	{
+		// Wait for serial monitor to open.
+		while (!Serial)
+			delay(1);
+	}
 
 	// Set onboard pixel to a nice yellow, so we can tell the MCU is on and running our code.
 	pixels.begin();
@@ -56,11 +50,6 @@ void setup()
 	usb.begin();
 	tempSensor.begin(0x18);
 
-	// if (!)
-	// {
-	// 	Serial.println("Couldn't find MCP9808! Check your connections and verify the address is correct.");
-	// }
-
 	// sets the resolution mode of reading, the modes are defined in the table bellow:
 	// Mode Resolution SampleTime
 	//  0    0.5°C       30 ms
@@ -70,20 +59,20 @@ void setup()
 	tempSensor.setResolution(3);
 
 	// Interval in microsecs
-	if (iTimer.attachInterruptInterval(tempInterval, tempTimer))
+	const bool timerSucess = iTimer.attachInterruptInterval(tempInterval, tempTimer);
+	if (printDebug)
 	{
-		Serial.print(F("Starting ITimer OK, millis() = "));
-		Serial.println(millis());
+		if (timerSucess)
+			Serial.printf("Starting ITimer OK, millis() = %d\n", millis());
+		else
+			Serial.println(F("Can't set ITimer. Select another freq. or timer"));
 	}
-	else
-		Serial.println(F("Can't set ITimer. Select another freq. or timer"));
 
 	logTime("/sTime");
 }
 
 void loop()
 {
-	// noInterrupts();
 	if (tempPoll)
 	{
 		// Wake up MCP9808, power consumption ~0.2 mA
@@ -92,7 +81,6 @@ void loop()
 		tempSensor.shutdown();
 		usb.writeToFile("/temp.dat", (uint8_t *)&temp, sizeof(temp), O_WRITE | O_CREAT | O_APPEND);
 	}
-	// interrupts();
 
 	// If the device is connected to usb, write uptime to a file for data visualisation
 	if (tud_cdc_connected() && !usbConnected)

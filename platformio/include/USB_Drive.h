@@ -14,8 +14,6 @@ class USB_Drive
   public:
 	// file system object from SdFat
 	static SdFat sd;
-	// Set to true when PC write to flash
-	static bool fsChanged;
 	void begin();
 	void writeToFile(const char *path, const uint8_t *buffer, const size_t size, oflag_t flags);
 	void loop();
