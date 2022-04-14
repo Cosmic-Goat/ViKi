@@ -1,63 +1,80 @@
 import Chart from 'chart.js/auto';
 
-async function main() {
-  const getData = async (file: string) =>
-    await (await (await fetch(file)).blob()).arrayBuffer();
+const getData = async (file: string) =>
+  await (await (await fetch(file)).blob()).arrayBuffer();
 
-  // const bpmData = new Uint32Array(await getData('./bpm.dat'));
-  // const pulseData = new Uint32Array(await getData('./pulse.dat'));
-  // const tempData = new Float32Array(await getData('./temp.dat'));
-  // const o2Data = new Float32Array(await getData('./o2.dat'));
+const range = (start: number, end: number, n: number) =>
+  Array.from({ length: n }, (_, i) => start + i * ((end - start) / (n - 1)));
 
-  const bpmData = [122.5, 120.1, 100.5, 113.2, 98.8, 94.5, 96.3];
-  const pulseData = new Array(4)
-    .fill([12, 13, 12, 17, 20, 13, 6, 78, 2, 11, 12, 21, 24, 12])
-    .flat();
-  const tempData = [37.3, 37.0, 36.5, 36.9, 36.8, 37.0, 37.1];
-  const o2Data = [98.0, 97.7, 97.8, 98.1, 97.8, 97.8, 98.0];
-
-  const time = [0, 10, 20, 30, 40, 50, 60]; // Minutes
-
-  const makeChart = (
-    id: string,
-    title: string,
-    labels: number[],
-    data: number[] | Uint32Array | Float32Array,
-    color: string,
-    scales = {},
-  ) =>
-    new Chart(id, {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [
-          {
-            label: title,
-            data: Array.from(data),
-            fill: false,
-            borderColor: color,
-            tension: 0.1,
-          },
-        ],
-      },
-      options: {
-        scales: {
-          yAxis: scales,
+const makeChart = (
+  id: string,
+  title: string,
+  labels: any[],
+  data: number[] | Uint32Array | Float32Array,
+  color: string,
+  unit = '',
+  time = '',
+  min = 0,
+) =>
+  new Chart(id, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: title,
+          data: Array.from(data),
+          fill: false,
+          borderColor: color,
+          tension: 0.1,
         },
-        maintainAspectRatio: false,
-        plugins: { title: { display: true, text: title } },
+      ],
+    },
+    options: {
+      scales: {
+        yAxis: {
+          min: min,
+          title: { display: true, text: unit },
+        },
+        xAxis: {
+          title: { display: true, text: time },
+        },
       },
-    });
-
-  const bpmChart = makeChart('bpm', 'Heart Rate', time, bpmData, '#f4a261', {
-    min: 0,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        title: { display: true, text: title, font: { size: 16 } },
+      },
+    },
   });
+
+async function main() {
+  const bpmData = new Float32Array(await getData('./bpm.dat'));
+  const pulseData = new Uint32Array(await getData('./pulse.dat'));
+  const tempData = new Float32Array(await getData('./temp.dat'));
+  const o2Data = new Float32Array(await getData('./o2.dat'));
+  const time = range(60, 0, 7);
+
+  const bpmChart = makeChart(
+    'bpm',
+    'Heart Rate',
+    time,
+    bpmData,
+    '#f4a261',
+    'Beats Per Minute',
+    'Minutes Ago',
+    0,
+  );
   const pulseChart = makeChart(
     'pulse',
     'Pulse',
-    Array.from({ length: pulseData.length }, (_, i) => i),
+    range(0, (pulseData.length - 1) / 20, pulseData.length).map((i: number) =>
+      i.toFixed(2),
+    ),
     pulseData,
     '#e76f51',
+    'Raw Value',
+    'Seconds',
   );
   const tempChart = makeChart(
     'temp',
@@ -65,6 +82,8 @@ async function main() {
     time,
     tempData,
     '#2a9d8f',
+    'Degrees Celcius',
+    'Minutes Ago',
   );
   const o2Chart = makeChart(
     'ox',
@@ -72,6 +91,9 @@ async function main() {
     time,
     o2Data,
     '#264653',
+    "Percentage",
+    "Minutes Ago",
+    75
   );
 }
 

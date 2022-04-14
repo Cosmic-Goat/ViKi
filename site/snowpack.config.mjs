@@ -17,6 +17,7 @@ export default {
     /* Enable an SPA Fallback in development: */
     // {"match": "routes", "src": ".*", "dest": "/index.html"},
   ],
+  knownEntrypoints: ["chart.js/helpers"],
   optimize: {
     bundle: true,
     minify: true,
