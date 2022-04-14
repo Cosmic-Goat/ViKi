@@ -711,11 +711,6 @@ console-control-strings@^1.0.0, console-control-strings@~1.1.0:
   resolved "https://registry.npmjs.org/console-control-strings/-/console-control-strings-1.1.0.tgz"
   integrity sha1-PXz0Rk22RG6mRL9LOVB/mFEAjo4=
 
-construct-js@^1.0.1:
-  version "1.0.1"
-  resolved "https://registry.yarnpkg.com/construct-js/-/construct-js-1.0.1.tgz#67b097002d17a814e3a087c13c83ed9f13603e5e"
-  integrity sha512-fqIC1AsZqmRAYJx0Cz94VkP4dUNXkidyVn7RV9cHXH4EDNyO0twZMLBn7esGRFtIJLMS+j/8CotN6ttuCuyrJw==
-
 core-util-is@1.0.2:
   version "1.0.2"
   resolved "https://registry.npmjs.org/core-util-is/-/core-util-is-1.0.2.tgz"
